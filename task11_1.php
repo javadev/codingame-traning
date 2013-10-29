@@ -1,4 +1,5 @@
 <?php
+// Dwarfs standing on the shoulders of giants
 // Read inputs from STDIN. Print outputs to STDOUT.
  
 fscanf(STDIN, "%d", $n);

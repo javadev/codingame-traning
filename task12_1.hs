@@ -1,3 +1,4 @@
+-- Bender, a depressed robot
 import Control.Monad
 import Control.Monad.ST
 import Data.Array.ST

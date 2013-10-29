@@ -1,3 +1,4 @@
+// Conway Sequence
 #include<iostream>
 #include<vector>
 
