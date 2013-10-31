@@ -1,3 +1,4 @@
+// Stock Exchange Losses
 // Read inputs from System.in, Write outputs to use print.
 // Your class name has to be Solution
 import math._
