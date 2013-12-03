@@ -77,59 +77,253 @@ Random: in12.txt out12.txt
 // Read inputs from Standard Input (use readline()).
 // Write outputs to Standard Output (use print()).
 
-var wh = readline();
-var w = wh.split(/\s+/)[0];
-var h = wh.split(/\s+/)[1];
-// print(w);
-// print(h);
-var d = readline().split(/\s+/);
-// print(d);
-// print(d);
-var ar = [];
-var index = 0;
-for (var i = 0; i < h; i++) {
-    ar.push([]);
-    for (var j = 0; j < w; j++) {
-        var c = d[index];
-        var len = parseInt(d[index + 1]);
-        if (len == 0) {
-            index += 2;
-            c = d[index];
-            len = d[index + 1];
-        }
-        d[index + 1] = parseInt(d[index + 1]) - 1;
-        ar[i].push(c);
-    }
-}
-var arCenter = [];
-print(w + " " + h);
-// scan height
-    for (var j = 0; j < w; j++) {
-for (var i = 0; i < h; i++) {
-        if (ar[i][j] == 'B' && ar[i-1][j] == 'W') {
-            arCenter.push(i);
-        }
-    }
-    if (arCenter.length > 0) {
-        break;
-    }
-}
-print("!" + arCenter);
-// scan width
-var arWidth = [];
-var lineHeight = (arCenter[1]-arCenter[0]);
-for (var i = 0; i < arCenter.length; i++) {
-    var scanLine = arCenter[0] + lineHeight*i + lineHeight / 2;
-// print(scanLine);
-for (var j = 0; j < w; j++) {
-    if (ar[scanLine][j] == 'B' && ar[scanLine][j-1] == 'W') {
-        arWidth.push(j);    
-    }
-}
-}
-print("!" + arWidth);
+var DEBUG = false;
 
-// print(index);
-// for (var i = 0; i < n; i++) {
-    // print('Hello World!');
-// }
+var debug = function(a){
+    if(DEBUG){
+        print(a.toSource())
+    }
+}
+
+var t = readline().split(" ");
+var W = parseInt(t[0]);
+var H = parseInt(t[1]);
+
+var c = readline().split(" ");
+
+var I = [];
+var RI = [];
+for(var i = 0; i < H; i++){
+    I.push([]);
+    RI.push([]);
+}
+
+var x = 0;
+var y = 0;
+var addColor = function(color){
+    I[y].push(color);
+    x ++;
+    if(x === W){
+        y++;
+        x = 0;
+    }
+}
+
+var sum = 0;
+var ry = 0;
+var addRLE = function(color, length){
+    if(length > W - sum){
+        RI[ry].push({color:color, size: W - sum, start:sum});
+        ry ++;
+        sum2 = sum
+        sum = 0;
+        addRLE(color, length - (W - sum2));
+    }else{
+        RI[ry].push({color:color, size:length, start:sum})
+        sum += length
+    }
+}
+
+
+for(var i = 0; i < c.length; i += 2){
+    var color = c[i] == "B";
+    var length = parseInt(c[i + 1])
+    for(var j = length; j --> 0;){
+        addColor(color);
+    }
+    addRLE(color, length);
+}
+
+var track = I.map(function(line){
+    var count = 0;
+    for(var i = 0; i < line.length; i++){
+        if(line[i]){
+            count ++;
+        }
+    }
+    return count > line.length / 2
+})
+
+var trackBounds = (function(){
+    var inside = false;
+    var currentStart = -1;
+    var res = [];
+    for(var i = 0; i < track.length; i++){
+        if(track[i] && !inside){
+            currentStart = i;
+            inside = true;
+        }
+        if(!track[i] && inside){
+            res.push({
+                start:currentStart,
+                end:i,
+                size:i - currentStart
+            })
+            inside = false
+        }
+    }
+    if(inside){
+        res.push({
+            start:currentStart,
+            end:i,
+            size:i - start
+        })
+    }
+    return res;
+})()
+
+var trackSize = (function(bounds){
+    var sizes = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    for(var i = 0; i < bounds.length; i++){
+        sizes[bounds[i].size] ++;
+    }
+    var maxi = 0;
+    for(var i = 1; i < sizes.length; i++){
+        if(sizes[i] > sizes[maxi]){
+            maxi = i
+        }
+    }
+    return maxi
+})(trackBounds)
+
+if(trackBounds.length != 5){
+    trackBounds = trackBounds.filter(function(a){
+        return a.size == trackSize;
+    })
+}
+
+if(trackBounds.length != 5){
+    print("I have more than 5 tracks, not supposed to happen");
+}
+
+var interTrack = (trackBounds[1].start - trackBounds[0].end)
+
+var doLine = function(lineIndex, index, thresMin, thresMax, filter){
+    var line = RI[lineIndex]
+    var res = []
+    for(var j = 0; j < line.length; j++){
+        if(line[j].size >= thresMin && line[j].size < thresMax){
+            debug(line[j])
+            if(filter(line[j], lineIndex, index)){
+                res.push({color:line[j].color, start: line[j].start, index:index})
+                if(line[j].color){
+                    j++
+                }else{
+                    j += 2
+                }
+            }
+        }
+    }
+    return res;
+}
+
+var thresMin = Math.floor(interTrack / 4 * 2.5);
+var thresMax = Math.floor(interTrack / 4 * 6);
+var notes = [];
+
+var eps = Math.floor(interTrack / 5)
+
+var checkInterTrack = function(c, index){
+    var x = Math.floor(c.start + c.size / 2)
+    if(trackSize != 1){
+        for(var y = index + eps; y < H; y++){
+            if (track[y]){
+                return false;
+            }
+            if (I[y][x]) break;
+        }
+    }
+    for(var y = index - eps; y -->0;){
+        if (track[y]){
+            return false;
+        }
+        if (I[y][x]) break;
+    }
+    if(I[index + eps][x] != c.color) return false;
+    if(I[index - eps][x] != c.color) return false;
+    return true;
+}
+
+var checkInterTrack2 = function(c, index){
+    var x = Math.floor(c.start + c.size / 2)
+    for(var y = index + eps; y < H; y++){
+        if (track[y]){
+            return false;
+        }
+        if (I[y][x]) break;
+    }
+    for(var y = index - eps; y -->0;){
+        if (track[y]){
+            return false;
+        }
+        if (I[y][x]) break;
+    }
+    if(I[index + eps][x] != c.color) return false;
+    if(I[index - eps][x] != c.color) return false;
+    return true;
+}
+
+var checkTrack = function(c, lineIndex, index){
+    var t = trackBounds[(index - 1) / 2];
+    var x = Math.floor(c.start + c.size / 2);
+    for(var y = t.end + eps; y < H; y++){
+        if (track[y]){
+            return false;
+        }
+        if (I[y][x]) break;
+    }
+    for(var y = t.start - eps; y -->0;){
+        if (track[y]){
+            return false;
+        }
+        if (I[y][x]) break;
+    }
+    if(I[t.end + eps][x] != c.color) return false;
+    if(I[t.start - eps][x] != c.color) return false;
+    return true;
+}
+
+//On the tracks
+for(var i = 0; i < 5; i++){
+    notes = notes.concat(
+        doLine(trackBounds[i].start - 1,
+        i * 2 + 1, thresMin, thresMax, checkTrack));
+}
+
+//Intertrack before the tracks
+for(var i = 0; i < 5; i++){
+    notes = notes.concat(
+        doLine(trackBounds[i].start - Math.floor(interTrack / 2),
+        i * 2, thresMin, thresMax, checkInterTrack));
+}
+
+//last intertracks
+notes = notes.concat(
+    doLine(trackBounds[4].start + Math.floor(interTrack / 2),
+    10,thresMin, thresMax, checkInterTrack));
+notes = notes.concat(
+    doLine(trackBounds[4].start + interTrack + Math.floor(interTrack / 4),
+    11, thresMin, thresMax * 2, checkInterTrack2));
+
+
+var names = ["G", "F", "E", "D", "C", "B", "A", "G", "F", "E", "D", "C"]
+
+notes.sort(function(a, b){
+    if(a.start < b.start) return -1;
+    if(a.start > b.start) return 1;
+    return 0;
+})
+
+var res = notes.map(function(n){
+    return names[n.index] + (n.color?"Q":"H")
+})
+/*
+BQ    DH    FQ GQ GQ BQ DH BQ BQ    DH    FQ GQ GQ BQ DH BQ
+BQ CH DH EH FQ GQ GQ BQ DH BQ BQ CH DH EH FQ GQ GQ BQ DH BQ
+*/
+print(res.join(" "))
+
+debug(trackBounds);
+debug(trackSize)
+debug(interTrack)
+debug(notes)

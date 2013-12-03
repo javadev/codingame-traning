@@ -100,40 +100,47 @@ Big random: in9.txt out9.txt
 // Read inputs from Standard Input (use readline()).
 // Write outputs to Standard Output (use print()).
 
-var n = parseInt(readline());
-var c = parseInt(readline());
-var b = [];
+var N = parseInt(readline());
+var C = parseInt(readline());
+var B = []
 
 var sum = 0;
-for (var i = 0; i < n; i++) {
-    var v = parseInt(readline());
-    b.push(v);
-    sum += v;
+for(var i = 0; i < N; i++) {
+    var b = parseInt(readline());
+    B.push({i: B.length, b: b});
+    sum += b;
 }
-if (sum < c) {
-    print('IMPOSSIBLE');
+/*
+print(B.toSource())
+print(C)
+*/
+if (C > sum) {
+    print("IMPOSSIBLE");
 } else {
-    var sorted = b.sort(function(a,b){return a-b});
-    var koef = c / sum;
-    var sum2 = 0;
-    var solution = [];
-    var max = 0;
-    for (var i = 0; i < n; i++) {
-      var v = parseInt(sorted[i] * koef);
-    //   print("v " + v);
-    //   if (v == 0) {
-    //       v = 1;
-    //   }
-      if (i == n - 1) {
-          v = c - sum2;
-      }
-      solution.push(v);
-      if (v > max) {
-          max = v;
-      }    
-      sum2 += v;
+    B.sort(function(a, b){
+        if (a.b < b.b) return -1;    
+        if (a.b > b.b) return 1;    
+        return 0;    
+    })
+
+    var res = [];    
+    var remaining = C;
+
+    for(var i = 0; i < B.length; i++) {
+        var current = B[i];
+        if (remaining / (B.length - i) > current.b) {
+            remaining -= current.b;
+            res[current.i] = current.b;
+        } else {
+            var v = Math.floor(remaining / (B.length -i));
+            res[current.i] = v;
+            remaining -= v;
+        }
     }
-    for (var i = 0; i < n; i++) {
-        print(solution[i]);
-    }
+    res.sort(function(a, b){
+        if (a < b) return -1;    
+        if (a > b) return 1;    
+        return 0;    
+    })
+    print(res.join("\n"));
 }
