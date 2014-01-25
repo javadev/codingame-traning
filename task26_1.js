@@ -73,12 +73,20 @@ while (1) {
     // printErr("Debug messages...");
 
     // Write action to standard output
-    printErr(n);
+    //printErr(n);
     var data = n.split(" ");
     printErr(data);
+    var angle = 0;
+    if (data[0] < targetX) {
+        angle = -5;
+    } else if (data[0] > targetX) {
+        angle = 5;
+    } else {
+        angle = 0;
+    }
     if (data[1] < 1500) {
         print('0 4');
     } else {
-    print('0 3');
+    print(angle + ' 3');
     }
 }
