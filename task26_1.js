@@ -40,6 +40,30 @@ A single line with 2 integers: R P
 
 // Read init information from standard input, if any
 
+var n =readline();
+var coords = [];
+for (i = 0; i < n; i++) {
+    coords.push(readline().split(" "));
+}
+var linear = [];
+for (i = 1; i < n; i++) {
+    if (coords[i - 1][1] == coords[i][1]) {
+        linear.push(coords[i - 1]);
+        linear.push(coords[i]);
+    }
+}
+// printErr(linear);
+// printErr(linear[0][1]);
+var targetY = parseInt(linear[0][1]);
+// printErr(linear[0][0]);
+var targetX1 = parseInt(linear[0][0]);
+// printErr(linear[1][0]);
+var targetX2 = parseInt(linear[1][0]);
+var targetX = targetX1 + (targetX2 - targetX1) / 2;
+// var init = readline().split(" ");
+// print(init);
+printErr(targetX);
+printErr(targetY);
 while (1) {
     // Read information from standard input
     var n = readline();
