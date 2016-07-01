@@ -170,6 +170,8 @@ var MapData = function () {
     this.ghosts = [];
     this.grid = [];
     this.stealers = [];
+    this.nbBusterDesperate = 0;
+    this.turn = 0;
     this.score = 0;
     for (var i = 0; i < 48; i++) {
       var x = 1000 + 2000 * (i % 8);
@@ -412,126 +414,176 @@ var Team = function () {
       return count;
     }
   }, {
-    key: 'makeDecision',
-    value: function makeDecision() {
+    key: 'behaviour',
+    value: function behaviour(buster) {
       var _this = this;
 
-      this.busters.forEach(function (buster) {
-        var distanceToBase = (0, _Utils.getDistance2)([buster.x, buster.y], [_this.x, _this.y]);
-        if (distanceToBase < 4000) {
-          _this.updateStealers(buster);
-        }
-        if (buster.state === 1) {
-          _this.carryingDecision(buster);
-        }
-        if (buster.state === 3 && !buster.helping) {
-          _this.trappingDecision(buster);
-        }
-        if (buster.state === 0 && !buster.helping) {
-          var _ret = function () {
-            var shouldDefend = _this.shouldDefendLast(buster);
-            if (shouldDefend === 2) {
+      var distanceToBase = (0, _Utils.getDistance2)([buster.x, buster.y], [this.x, this.y]);
+      if (buster.helping) {}
+      if (distanceToBase < 6000) {
+        this.updateStealers(buster);
+      }
+      if (buster.state === 1) {
+        this.carryingDecision(buster);
+      }
+      if (buster.state === 3 && !buster.helping) {
+        this.trappingDecision(buster);
+      }
+      if (buster.state === 0 && !buster.helping) {
+        var _ret = function () {
+          var shouldDefend = _this.shouldDefendLast(buster);
+          if (shouldDefend === 2) {
+            return {
+              v: void 0
+            };
+          }
+
+          var _getClosest = (0, _Utils.getClosest)(buster, _MapData.mapData.sighedBusters, -1, [0, 2, 3, 4]);
+
+          var closestEnnemy = _getClosest.closest;
+          var ennemyDistance = _getClosest.minDist;
+
+          if (!closestEnnemy || ennemyDistance > 1760) {
+            var _getClosest2 = (0, _Utils.getClosest)(buster, _MapData.mapData.sighedBusters, -1, [2, 4]);
+
+            closestEnnemy = _getClosest2.closest;
+            ennemyDistance = _getClosest2.minDist;
+          }
+          if (closestEnnemy) {
+            var ennemyToBase = (0, _Utils.getDistance2)([closestEnnemy.x, closestEnnemy.y], [_this.x, _this.y]);
+            if (ennemyDistance < 1760 && buster.isStunAvailable() && ennemyToBase > 3500) {
+              buster.stun(closestEnnemy.id);
+              closestEnnemy.willBeStunBy = buster;
+              closestEnnemy.state = 4;
+              var ghost = _MapData.mapData.getGhost(closestEnnemy.value);
+              if (ghost) {
+                ghost.giveUp = false;
+              } else if (closestEnnemy.value !== -1) {
+                var estimatedNextPos = (0, _Utils.getNextPos)([closestEnnemy.x, closestEnnemy.y], [_this.ennemyX, _this.ennemyY]);
+                _MapData.mapData.createOrUpdateGhost(closestEnnemy.value, estimatedNextPos.x, estimatedNextPos.y, 0, 0);
+              }
               return {
                 v: void 0
               };
-            }
-
-            var _getClosest = (0, _Utils.getClosest)(buster, _MapData.mapData.sighedBusters);
-
-            var closestEnnemy = _getClosest.closest;
-            var ennemyDistance = _getClosest.minDist;
-
-            if (closestEnnemy && closestEnnemy.state !== 2) {
-              if (ennemyDistance < 1760 && buster.isStunAvailable()) {
-                buster.stun(closestEnnemy.id);
-                var ghost = _MapData.mapData.getGhost(closestEnnemy.value);
-                if (ghost) {
-                  ghost.giveUp = false;
-                } else if (closestEnnemy.value !== -1) {
-                  var estimatedNextPos = (0, _Utils.getNextPos)([closestEnnemy.x, closestEnnemy.y], [_this.ennemyX, _this.ennemyY]);
-                  _MapData.mapData.createOrUpdateGhost(closestEnnemy.value, estimatedNextPos.x, estimatedNextPos.y, 0, 0);
+            } else if (ennemyDistance < 2200 && ennemyToBase > 3500) {
+              if (closestEnnemy.willBeStunBy) {}
+              var distanceToEnnemyBase = (0, _Utils.getDistance2)([buster.x, buster.y], [_this.ennemyX, _this.ennemyY]);
+              var ennemyToHisBase = (0, _Utils.getDistance2)([closestEnnemy.x, closestEnnemy.y], [_this.ennemyX, _this.ennemyY]);
+              if (closestEnnemy.state === 1 && distanceToEnnemyBase > ennemyToHisBase) {
+                _this.goToBase(buster, true);
+                ennemyToHisBase = _this.goToBase(closestEnnemy, true);
+                if (Math.ceil(ennemyToHisBase / 800) - 1 > buster.stunCD) {
+                  return {
+                    v: void 0
+                  };
                 }
-                return {
-                  v: void 0
-                };
-              } else if (ennemyDistance < 2200) {
-                var ennemyToBase = (0, _Utils.getDistance2)([closestEnnemy.x, closestEnnemy.y], [_this.ennemyX, _this.ennemyY]);
-                var distanceToEnnemyBase = (0, _Utils.getDistance2)([buster.x, buster.y], [_this.ennemyX, _this.ennemyY]);
-                if (closestEnnemy.state === 1 && distanceToEnnemyBase > ennemyToBase) {
-                  _this.goToBase(buster, true);
-                  ennemyToBase = _this.goToBase(closestEnnemy, true);
-                  if (Math.ceil(ennemyToBase / 800) - 1 > buster.stunCD) {
-                    return {
-                      v: void 0
-                    };
-                  }
-                } else {
-                  var nbTurnToGo = Math.ceil((ennemyDistance - 1760) / 800);
-                  if (buster.isStunAvailable() || buster.stunCD < nbTurnToGo) {
-                    buster.goTo(closestEnnemy.x, closestEnnemy.y);
-                    return {
-                      v: void 0
-                    };
-                  }
-                }
-              }
-            }
-
-            var inSigh = (0, _Utils.getSighed)(buster, _MapData.mapData.ghosts);
-            var closest = void 0;
-            var minDist = void 0;
-            inSigh.forEach(function (_ref) {
-              var currentEntity = _ref.currentEntity;
-              var currentDist = _ref.currentDist;
-
-              if (!currentEntity.giveUp && (!closest || currentEntity.state < closest.state)) {
-                closest = currentEntity;
-                minDist = currentDist;
-              }
-            });
-            if (!closest) {
-              var _getClosest2 = (0, _Utils.getClosest)(buster, _MapData.mapData.ghosts);
-
-              closest = _getClosest2.closest;
-              minDist = _getClosest2.minDist;
-            }
-            if (closest && !closest.giveUp) {
-              if (minDist < 1760 && minDist >= 900) {
-                buster.bust(closest.id);
-                if (buster.state !== 3) {
-                  closest.value++;
-                  buster.value = closest.id;
-                  buster.state = 3;
-                }
-              } else if (minDist < 900) {
-                _this.goToBase(buster);
               } else {
-                var _nbTurnToGo = Math.ceil((minDist - 1760) / 800);
-                if (closest.value > 0 && closest.state - closest.value * _nbTurnToGo > 0 || closest.value === 0 && closest.state - _nbTurnToGo > 0 || closest.state === 0 || minDist < 2200) {
-                  buster.goTo(closest.x, closest.y);
-                } else if (!_this.shouldRoam(buster, shouldDefend)) {
-                  buster.currentAction = 'IDLE';
-                  _this.search(buster);
+                var nbTurnToGo = Math.ceil((ennemyDistance - 1760) / 800);
+                if (buster.isStunAvailable() || buster.stunCD < nbTurnToGo) {
+                  buster.goTo(closestEnnemy.x, closestEnnemy.y);
+                  return {
+                    v: void 0
+                  };
                 }
               }
-            } else if (!_this.shouldRoam(buster, shouldDefend)) {
-              _this.search(buster);
             }
-          }();
+          }
 
-          if ((typeof _ret === 'undefined' ? 'undefined' : _typeof(_ret)) === "object") return _ret.v;
+          var _getBestGhost = _this.getBestGhost(buster);
+
+          var closest = _getBestGhost.closest;
+          var minDist = _getBestGhost.minDist;
+
+          if (closest) {
+            if (minDist < 1760 && minDist >= 900) {
+              buster.bust(closest.id);
+              if (buster.state !== 3) {
+                closest.value++;
+                closest.state--;
+                buster.value = closest.id;
+                buster.state = 3;
+              }
+            } else if (minDist < 900) {
+              var _ret2 = function () {
+                var ennemyInSigh = (0, _Utils.getSighed)(buster, _MapData.mapData.sighedBusters);
+                var countEnnemies = 0;
+                ennemyInSigh.forEach(function (ennemy) {
+                  var ennemyToGhost = (0, _Utils.getDistance)(ennemy, closest);
+                  if (ennemy.state !== 2 && ennemyToGhost > 900 && ennemyToGhost < 1760) {
+                    countEnnemies++;
+                  }
+                });
+                if (countEnnemies > 0) {
+                  _this.goToBase(buster, true);
+                  return {
+                    v: {
+                      v: void 0
+                    }
+                  };
+                }
+                var nextPosToBase = (0, _Utils.getNextPos)([buster.x, buster.y], [_this.x, _this.y], 600);
+                buster.goTo(nextPosToBase.x, nextPosToBase.y);
+              }();
+
+              if ((typeof _ret2 === 'undefined' ? 'undefined' : _typeof(_ret2)) === "object") return _ret2.v;
+            } else {
+              buster.goTo(closest.x, closest.y);
+            }
+          } else if (!_this.shouldRoam(buster, shouldDefend)) {
+            _this.search(buster);
+          }
+        }();
+
+        if ((typeof _ret === 'undefined' ? 'undefined' : _typeof(_ret)) === "object") return _ret.v;
+      }
+      if (buster.state === 2) {
+        this.search(buster);
+      }
+    }
+  }, {
+    key: 'getBestGhost',
+    value: function getBestGhost(buster) {
+      var bestGhost = void 0;
+      var minDist = void 0;
+      _MapData.mapData.ghosts.forEach(function (ghost) {
+        var currentDist = (0, _Utils.getDistance)(ghost, buster);
+        var nbTurnToGo = Math.ceil((currentDist - 1760) / 800);
+        var countEnnemies = 0;
+        _MapData.mapData.sighedBusters.forEach(function (ennemy) {
+          var ennemyToGhost = (0, _Utils.getDistance)(ennemy, ghost);
+          if (ennemy.state !== 2 && ennemyToGhost > 900 && ennemyToGhost < 1760) {
+            countEnnemies++;
+          }
+        });
+        var isBustable = currentDist < 1760 && currentDist > 900;
+        var isReachable = ghost.value > 0 && ghost.state - ghost.value * nbTurnToGo > 0 || ghost.value === 0 && (countEnnemies === 0 || isBustable);
+        var onlyWeak = _MapData.mapData.turn < 2 * _MapData.mapData.nbGhosts && ghost.state <= 15 && ghost.value < 1 || _MapData.mapData.turn >= 2 * _MapData.mapData.nbGhosts || _MapData.mapData.ghosts.length >= (_MapData.mapData.nbGhosts - 1) / 2;
+        if (!ghost.giveUp && isReachable && onlyWeak && (!bestGhost || ghost.state < bestGhost.state)) {
+          bestGhost = ghost;
+          minDist = currentDist;
         }
-        if (buster.state === 2) {
-          _this.search(buster);
-        }
+      });
+      return {
+        closest: bestGhost,
+        minDist: minDist
+      };
+    }
+  }, {
+    key: 'makeDecision',
+    value: function makeDecision() {
+      var _this2 = this;
+
+      this.busters.forEach(function (buster) {
+        _this2.behaviour(buster);
       });
     }
   }, {
     key: 'shouldRoam',
     value: function shouldRoam(buster, shouldDefend) {
-      if (shouldDefend === 1 && _MapData.mapData.sighedGhosts.length === 0 && !buster.roam) {
+      if (shouldDefend === 1 && _MapData.mapData.ghosts.length === 0 && _MapData.mapData.nbBusterDesperate < _MapData.mapData.stealers.length - 1 && !buster.roam) {
         this.goToBase(buster, true, 1700);
         buster.roam = true;
+        _MapData.mapData.nbBusterDesperate++;
         return true;
       }
 
@@ -576,69 +628,60 @@ var Team = function () {
   }, {
     key: 'updateStealers',
     value: function updateStealers(buster) {
-      var _this2 = this;
+      var _this3 = this;
 
       var inSigh = (0, _Utils.getSighed)(buster, _MapData.mapData.stealers);
-      inSigh.forEach(function (_ref2) {
-        var currentEntity = _ref2.currentEntity;
-
-        var isStillHere = false;
-        _MapData.mapData.sighedBusters.forEach(function (sighedBuster) {
-          if (currentEntity.id === sighedBuster.id && sighedBuster.state !== 2) {
-            isStillHere = true;
-          }
-        });
-        if (!isStillHere) {
-          _MapData.mapData.stealers.forEach(function (stealer, index) {
-            if (stealer.id === currentEntity.id) {
-              _MapData.mapData.stealers.splice(index, 0);
-            }
-          });
-        }
-      });
-
       _MapData.mapData.sighedBusters.forEach(function (sighedBuster) {
         var distMeToHim = (0, _Utils.getDistance)(buster, sighedBuster);
-        var distMeToBase = (0, _Utils.getDistance2)([buster.x, buster.y], [_this2.x, _this2.y]);
-        var distHimToBase = (0, _Utils.getDistance2)([sighedBuster.x, sighedBuster.y], [_this2.x, _this2.y]);
+        var distMeToBase = (0, _Utils.getDistance2)([buster.x, buster.y], [_this3.x, _this3.y]);
+        var distHimToBase = (0, _Utils.getDistance2)([sighedBuster.x, sighedBuster.y], [_this3.x, _this3.y]);
         var found = false;
-        _MapData.mapData.stealers.forEach(function (stealer) {
+        var foundIndex = -1;
+        _MapData.mapData.stealers.forEach(function (stealer, index) {
           if (stealer.id === sighedBuster.id) {
             found = true;
+            foundIndex = index;
+            stealer.state = sighedBuster.state;
+            stealer.x = sighedBuster.x;
+            stealer.y = sighedBuster.y;
           }
         });
-        if (!found && distMeToHim < 2200 && distMeToBase > distHimToBase - 800 && sighedBuster.state !== 2) {
+        if (!found && distMeToHim < 2200 && distHimToBase - 800 < distMeToBase) {
           _MapData.mapData.stealers.push(sighedBuster);
+        } else if (found && distHimToBase > 4000) {
+          _MapData.mapData.stealers.splice(foundIndex, 1);
         }
       });
     }
   }, {
     key: 'askProtection',
     value: function askProtection(buster, wanted) {
-      var _this3 = this;
+      var _this4 = this;
 
       this.closestBusters = [];
       this.busters.forEach(function (currentBuster) {
         if (buster.id !== currentBuster.id) {
-          _this3.closestBusters.push(currentBuster);
+          _this4.closestBusters.push(currentBuster);
         }
       });
       this.closestBusters.sort(function (buster1, buster2) {
-        var distance1 = (0, _Utils.getDistance)(buster, buster1);
-        var distance2 = (0, _Utils.getDistance)(buster, buster2);
-        if (distance1 < distance2) {
+        var nbTurnToGo1 = Math.ceil(((0, _Utils.getDistance)(buster, buster1) - 950) / 800);
+        var nbTurnToGo2 = Math.ceil(((0, _Utils.getDistance)(buster, buster2) - 950) / 800);
+        if (nbTurnToGo1 + buster1.stunCD < nbTurnToGo2 + buster2.stunCD) {
           return -1;
-        } else if (distance1 > distance2) {
+        } else if (nbTurnToGo1 + buster1.stunCD > nbTurnToGo2 + buster2.stunCD) {
           return 1;
         }
         return 0;
       });
       this.closestBusters.forEach(function (currentBuster, index) {
-        if (index < wanted) {
+        var nbTurnToGo = Math.ceil(((0, _Utils.getDistance)(buster, currentBuster) - 950) / 800);
+        if (index < wanted && (nbTurnToGo === 0 || nbTurnToGo > currentBuster.stunCD)) {
           currentBuster.helping = true;
+          currentBuster.helpingOn = buster.id;
           var distMeToHim = (0, _Utils.getDistance)(buster, currentBuster);
 
-          var _getClosest3 = (0, _Utils.getClosest)(currentBuster, _MapData.mapData.sighedBusters, -1, 2);
+          var _getClosest3 = (0, _Utils.getClosest)(currentBuster, _MapData.mapData.sighedBusters, -1, [2, 4]);
 
           var closestEnnemy = _getClosest3.closest;
           var ennemyDistance = _getClosest3.minDist;
@@ -653,18 +696,18 @@ var Team = function () {
             currentBuster.stun(closestEnnemy.id);
             closestEnnemy.state = 2;
           } else if (distMeToHim > 1000) {
-            var nextPos = (0, _Utils.getNextPos)([buster.x, buster.y], [_this3.x, _this3.y], 950);
+            var nextPos = (0, _Utils.getNextPos)([buster.x, buster.y], [_this4.x, _this4.y], 950);
             currentBuster.goTo(nextPos.x, nextPos.y);
           } else {
-            _this3.goToBase(currentBuster);
+            _this4.goToBase(currentBuster);
           }
         }
       });
       var countCloseBusters = 0;
       this.closestBusters.forEach(function (currentBuster) {
         var distMeToHim = (0, _Utils.getDistance)(buster, currentBuster);
-        var distMeToBase = (0, _Utils.getDistance2)([buster.x, buster.y], [_this3.x, _this3.y]);
-        var distHimToBase = (0, _Utils.getDistance2)([currentBuster.x, currentBuster.y], [_this3.x, _this3.y]);
+        var distMeToBase = (0, _Utils.getDistance2)([buster.x, buster.y], [_this4.x, _this4.y]);
+        var distHimToBase = (0, _Utils.getDistance2)([currentBuster.x, currentBuster.y], [_this4.x, _this4.y]);
         if (currentBuster.isStunAvailable() && (distMeToHim < 300 || distMeToBase >= distHimToBase)) {
           countCloseBusters++;
         }
@@ -674,13 +717,48 @@ var Team = function () {
   }, {
     key: 'carryingDecision',
     value: function carryingDecision(buster) {
+      var _this5 = this;
+
       _MapData.mapData.release(buster.value);
       if (_MapData.mapData.stealers.length > 0) {
-        var closeBusters = this.askProtection(buster, _MapData.mapData.stealers.length - 1);
-        var distanceToBase = (0, _Utils.getDistance)([buster.x, buster.y], [this.x, this.y]);
-        if (distanceToBase < 4000 && (closeBusters < _MapData.mapData.stealers.length - 1 || !buster.isStunAvailable())) {
-          return;
-        }
+        var _ret3 = function () {
+          var countThreats = buster.isStunAvailable() ? 0 : 1;
+          _MapData.mapData.stealers.forEach(function (stealer) {
+            if (stealer.state !== 2) {
+              countThreats++;
+            }
+          });
+          var closeBusters = _this5.askProtection(buster, countThreats - 1);
+          var distanceToBase = (0, _Utils.getDistance2)([buster.x, buster.y], [_this5.x, _this5.y]);
+          var stealerClose = false;
+          var stunnedStealerClose = false;
+          _MapData.mapData.stealers.forEach(function (stealer) {
+            if ((0, _Utils.getDistance)(stealer, buster) < 2200 && stealer.state !== 2) {
+              stealerClose = true;
+            } else if (stealer.state === 2) {
+              stunnedStealerClose = true;
+            }
+          });
+          if (distanceToBase > 2400 && distanceToBase < 6000 && closeBusters < countThreats - 1) {
+            if (!stealerClose) {
+              buster.goTo(buster.x, buster.y);
+              return {
+                v: void 0
+              };
+            } else if (!stealerClose && stunnedStealerClose) {
+              var _getClosest4 = (0, _Utils.getClosest)(buster, _this5.busters, buster.id);
+
+              var closestTeam = _getClosest4.closest;
+
+              buster.goTo(closestTeam.x, closestTeam.y);
+              return {
+                v: void 0
+              };
+            }
+          }
+        }();
+
+        if ((typeof _ret3 === 'undefined' ? 'undefined' : _typeof(_ret3)) === "object") return _ret3.v;
       }
 
       if (buster.isInBaseRange()) {
@@ -688,10 +766,10 @@ var Team = function () {
         return;
       }
 
-      var _getClosest4 = (0, _Utils.getClosest)(buster, _MapData.mapData.sighedBusters, -1, 2);
+      var _getClosest5 = (0, _Utils.getClosest)(buster, _MapData.mapData.sighedBusters, -1, [2]);
 
-      var closestEnnemy = _getClosest4.closest;
-      var ennemyDistance = _getClosest4.minDist;
+      var closestEnnemy = _getClosest5.closest;
+      var ennemyDistance = _getClosest5.minDist;
 
       if (closestEnnemy) {
         if (ennemyDistance > 1760) {
@@ -700,6 +778,11 @@ var Team = function () {
         } else if (buster.isStunAvailable()) {
           buster.stun(closestEnnemy.id);
           closestEnnemy.state = 2;
+          var busterWouldStun = closestEnnemy.willBeStunBy;
+          if (busterWouldStun) {
+            closestEnnemy.willBeStunBy = null;
+            this.behaviour(busterWouldStun);
+          }
           return;
         }
       }
@@ -709,13 +792,13 @@ var Team = function () {
   }, {
     key: 'shouldDefendLast',
     value: function shouldDefendLast(buster) {
-      var _this4 = this;
+      var _this6 = this;
 
       if (_MapData.mapData.score === (_MapData.mapData.nbGhosts - 1) / 2) {
-        var _ret2 = function () {
+        var _ret4 = function () {
           var carryingBuster = null;
           var minDist = 100000;
-          _this4.busters.forEach(function (currentBuster) {
+          _this6.busters.forEach(function (currentBuster) {
             var distance = (0, _Utils.getDistance)(buster, currentBuster);
             if (currentBuster.state === 1 && currentBuster.action !== 'RELEASE' && distance < minDist) {
               carryingBuster = currentBuster;
@@ -723,10 +806,10 @@ var Team = function () {
             }
           });
           if (carryingBuster) {
-            var _getClosest5 = (0, _Utils.getClosest)(buster, _MapData.mapData.sighedBusters, -1, 2);
+            var _getClosest6 = (0, _Utils.getClosest)(buster, _MapData.mapData.sighedBusters, -1, [2]);
 
-            var closestEnnemy = _getClosest5.closest;
-            var ennemyDistance = _getClosest5.minDist;
+            var closestEnnemy = _getClosest6.closest;
+            var ennemyDistance = _getClosest6.minDist;
 
             if (closestEnnemy && ennemyDistance < 1760 && buster.isStunAvailable()) {
               buster.stun(closestEnnemy.id);
@@ -738,22 +821,56 @@ var Team = function () {
               v: 2
             };
           }
+          _MapData.mapData.sighedBusters.forEach(function (currentBuster) {
+            if (currentBuster.state === 1) {
+              carryingBuster = currentBuster;
+            }
+          });
+          if (carryingBuster) {
+            var _getClosest7 = (0, _Utils.getClosest)(buster, _MapData.mapData.sighedBusters, -1, [0, 2, 3]);
+
+            var _closestEnnemy = _getClosest7.closest;
+            var _ennemyDistance = _getClosest7.minDist;
+
+            if (!_closestEnnemy) {
+              var _getClosest8 = (0, _Utils.getClosest)(buster, _MapData.mapData.sighedBusters, -1, [2]);
+
+              _closestEnnemy = _getClosest8.closest;
+              _ennemyDistance = _getClosest8.minDist;
+            }
+            if (_closestEnnemy && _ennemyDistance < 1760 && buster.isStunAvailable()) {
+              buster.stun(_closestEnnemy.id);
+              _closestEnnemy.state = 2;
+            } else {
+              if (!carryingBuster.isFollowed || buster.id === carryingBuster.isFollowedBy) {
+                buster.goTo(carryingBuster.x, carryingBuster.y);
+                carryingBuster.isFollowed = true;
+                carryingBuster.isFollowedBy = buster.id;
+              } else {
+                var nextPos = (0, _Utils.getNextPos)([carryingBuster.x, carryingBuster.y], [_this6.ennemyX, _this6.ennemyY]);
+                buster.goTo(nextPos.x, nextPos.y);
+              }
+            }
+            return {
+              v: 2
+            };
+          }
           return {
             v: 1
           };
         }();
 
-        if ((typeof _ret2 === 'undefined' ? 'undefined' : _typeof(_ret2)) === "object") return _ret2.v;
+        if ((typeof _ret4 === 'undefined' ? 'undefined' : _typeof(_ret4)) === "object") return _ret4.v;
       }
       return 0;
     }
   }, {
     key: 'trappingDecision',
     value: function trappingDecision(buster) {
-      var _getClosest6 = (0, _Utils.getClosest)(buster, _MapData.mapData.sighedBusters);
+      var _getClosest9 = (0, _Utils.getClosest)(buster, _MapData.mapData.sighedBusters);
 
-      var closestEnnemy = _getClosest6.closest;
-      var ennemyDistance = _getClosest6.minDist;
+      var closestEnnemy = _getClosest9.closest;
+      var ennemyDistance = _getClosest9.minDist;
 
       var ghost = _MapData.mapData.getGhost(buster.value);
       var teamTrapping = -1;
@@ -800,10 +917,10 @@ var Team = function () {
         return;
       }
 
-      var ennemyRange = Math.pow(2563, 2);
+      var ennemyRange = Math.pow(2400, 2);
       var a = 2 * (ennemy.x - buster.x);
       var b = 2 * (ennemy.y - buster.y);
-      var c = Math.pow(ennemy.x - buster.x, 2) + Math.pow(ennemy.y - buster.y, 2) - ennemyRange + 640000; // 1800 - 800
+      var c = Math.pow(ennemy.x - buster.x, 2) + Math.pow(ennemy.y - buster.y, 2) - ennemyRange + 640000;
       var delta = Math.pow(2 * a * c, 2) - 4 * (Math.pow(a, 2) + Math.pow(b, 2)) * (Math.pow(c, 2) - Math.pow(b, 2) * 640000);
       if (delta <= 0) {
         buster.goTo(this.x, this.y);
@@ -831,7 +948,7 @@ var Team = function () {
   }, {
     key: 'askForHelp',
     value: function askForHelp(buster, needed) {
-      var _this5 = this;
+      var _this7 = this;
 
       var available = 0;
       var helpers = [];
@@ -857,7 +974,7 @@ var Team = function () {
           if (distance < 1760 && distance >= 900) {
             currentBuster.bust(ghost.id);
           } else if (distance < 900) {
-            _this5.goToBase(currentBuster);
+            _this7.goToBase(currentBuster);
           } else {
             currentBuster.goTo(ghost.x, ghost.y);
           }
@@ -869,16 +986,18 @@ var Team = function () {
   }, {
     key: 'search',
     value: function search(buster) {
-      var _this6 = this;
+      var _this8 = this;
 
       if (buster.currentAction === 'IDLE') {
         (function () {
           var minDist = 1000000;
           var closestCell = null;
-          _MapData.mapData.grid.forEach(function (cell) {
+          var closestCellId = -1;
+          _MapData.mapData.grid.forEach(function (cell, index) {
             var distance = (0, _Utils.getDistance2)([buster.x, buster.y], [cell.x, cell.y]);
-            if (distance < minDist && !cell.noGhost && !cell.searched) {
+            if (distance > 2200 && distance < minDist && !cell.noGhost && !cell.searched) {
               closestCell = cell;
+              closestCellId = index;
               minDist = distance;
             }
           });
@@ -886,7 +1005,7 @@ var Team = function () {
             closestCell.searched = true;
             buster.goTo(closestCell.x, closestCell.y);
           } else {
-            _this6.goToBase(buster, true);
+            _this8.goToBase(buster, true);
           }
         })();
       }
@@ -979,13 +1098,13 @@ function getDistance(entity1, entity2) {
 
 function getClosest(entity, entities) {
   var exceptId = arguments.length <= 2 || arguments[2] === undefined ? -1 : arguments[2];
-  var exceptState = arguments.length <= 3 || arguments[3] === undefined ? -1 : arguments[3];
+  var exceptState = arguments.length <= 3 || arguments[3] === undefined ? [] : arguments[3];
 
   var minDist = 100000;
   var closest = null;
   entities.forEach(function (currentEntity) {
     var currentDist = getDistance(entity, currentEntity);
-    if (minDist > currentDist && currentEntity.id !== exceptId && currentEntity.state !== exceptState) {
+    if (minDist > currentDist && currentEntity.id !== exceptId && exceptState.indexOf(currentEntity.state) === -1) {
       minDist = currentDist;
       closest = currentEntity;
     }
@@ -1140,17 +1259,20 @@ var myTeamId = parseInt(readline()); // if this is 0, your base is on the top le
 var myTeam = new _Team2.default(myTeamId);
 _MapData.mapData.setGhostsCount(ghostCount);
 _MapData.mapData.setMyTeamId(myTeamId);
+
+// game loop
 while (true) {
-  var entities = parseInt(readline()); // the number of busters and ghosts visible to you
+  var entities = parseInt(readline());
+  _MapData.mapData.turn++;
   _MapData.mapData.clearInstantData();
   for (var i = 0; i < entities; i++) {
     var inputs = readline().split(' ');
-    var entityId = parseInt(inputs[0]); // buster id or ghost id
+    var entityId = parseInt(inputs[0]);
     var x = parseInt(inputs[1]);
-    var y = parseInt(inputs[2]); // position of this buster / ghost
-    var entityType = parseInt(inputs[3]); // the team id if it is a buster, -1 if it is a ghost.
-    var state = parseInt(inputs[4]); // For busters: 0=idle, 1=carrying a ghost.
-    var value = parseInt(inputs[5]); // For busters: Ghost id being carried. For ghosts: number of busters attempting to trap this ghost.
+    var y = parseInt(inputs[2]);
+    var entityType = parseInt(inputs[3]);
+    var state = parseInt(inputs[4]);
+    var value = parseInt(inputs[5]);
     if (entityType === myTeamId) {
       myTeam.createOrUpdateBuster(entityId, x, y, entityType, state, value);
     } else {
