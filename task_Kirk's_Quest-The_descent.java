@@ -1,45 +1,39 @@
-// Kirk's Quest - The descent
 import java.util.*;
 import java.io.*;
 import java.math.*;
 
-class Player
-{
-    private static enum Action
-    {
-        FIRE,HOLD;
-    }
-    
-    private static final int MAX_X = 7;
-    private static final int MAX_Y = 10;
-    private static final int MAX_H = 9;
-    
-    private static int sx;
-    private static int sy;
-    private static final int[] mh = new int[8];
+class Player {
 
-    public static void main(String args[])
-    {
+    public static void main(String args[]) {
         Scanner in = new Scanner(System.in);
         
-        while (true)
-        {
-            // Lecture des parametres de jeu
-            sx = in.nextInt();
-            sy = in.nextInt();
-            int targetX = -1, maxH = 0;
-            for(int i=0;i<8;i++)
-            {
-                int h = in.nextInt();
-                mh[i] = h;
-                if(h > maxH)
-                {
-                    targetX = i;
-                    maxH = h;
+        /*two variables, one to set the highest mountain (maxHeight)
+        the other one to set the index of such mountain*/
+        int mountainT = 0; 
+        int imax = 0;
+    
+        
+        // game loop
+        while (true) {
+            for (int i = 0; i < 8; i++) {
+                int mountainH = in.nextInt(); // represents the height of one mountain, from 9 to 0.
+                
+                /*if a mountain is higher than mountainT,
+                it becomes the highest mountain and we get
+                it's index (imax)*/
+                if (mountainH > mountainT){
+                    mountainT = mountainH;
+                    imax = i;
+                    
                 }
+               
             }
+            System.out.println(imax); // The number of the mountain to fire on.
             
-            System.out.println((sx==targetX) ? Action.FIRE : Action.HOLD);
+            //return mountainT to 0 in case another pass is neeeded
+            mountainT = 0;
+
         }
+        
     }
 }
